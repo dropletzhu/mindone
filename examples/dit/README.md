@@ -42,7 +42,7 @@ DiT (Diffusion Transformer) is a state-of-the-art diffusion model that uses a tr
 
 ## Quick Start
 
-### Training a DiT-XL/2 Model
+### Training a DiT-XL/2 Model (MindSpore)
 
 ```bash
 # 1. Navigate to the DiT directory
@@ -56,6 +56,34 @@ python scripts/train.py \
     --config configs/train_dit_xl_2.yaml \
     data.dataset_path=/path/to/imagenet \
     train.output_path=./output/dit_xl2
+```
+
+### Training with PyTorch (Alternative)
+
+If MindSpore is not available, you can use the PyTorch-based DiT implementation at the root `DiT/` directory:
+
+```bash
+# Navigate to DiT directory
+cd DiT
+
+# Run training on CPU
+RANK=0 LOCAL_RANK=0 WORLD_SIZE=1 MASTER_ADDR=localhost MASTER_PORT=29500 \
+python3 train.py \
+    --data-path /path/to/imagenet \
+    --results-dir ./output/dit_xl2 \
+    --model DiT-XL/2 \
+    --device cpu \
+    --num-workers 4 \
+    --epochs 100 \
+    --global-batch-size 256
+
+# Or run on GPU (if available)
+python3 train.py \
+    --data-path /path/to/imagenet \
+    --results-dir ./output/dit_xl2 \
+    --model DiT-XL/2 \
+    --device cuda \
+    --num-workers 4
 ```
 
 ### Generating Images
@@ -98,22 +126,33 @@ examples/dit/
 
 ### Requirements
 
-- MindSpore >= 2.0
+- MindSpore >= 2.0 (for MindSpore version)
+- PyTorch >= 2.0 (for PyTorch version)
 - Python >= 3.9
 - CUDA >= 11.7 (for GPU training)
+- Ascend NPU (for Ascend training)
 
-### Install Dependencies
+### Install Dependencies (MindSpore)
 
 ```bash
-# Install MindSpore
-pip install mindspore
+# Install MindSpore (CPU/GPU/Ascend)
+pip install mindspore             # CPU
+pip install mindspore-gpu         # GPU
+pip install mindspore-ascend      # Ascend NPU
 
 # Install MindONE in development mode
 cd /home/ubuntu/xql/mindone
 pip install -e ".[training]"
+```
 
-# Install additional dependencies
-pip install einops pytorch-quantization
+### Install Dependencies (PyTorch)
+
+```bash
+# Install PyTorch with CUDA
+pip install torch torchvision
+
+# Or install CPU version
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
 ```
 
 ## Training
@@ -124,13 +163,30 @@ DiT requires ImageNet dataset for training. Download from [Image-Net](https://im
 
 ```
 imagenet/
-└── train/
+├── train/
+│   ├── n01440764/
+│   │   ├── ILSVRC2012_val_00000211.JPEG
+│   │   └── ...
+│   ├── n01443537/
+│   │   └── ...
+│   └── ...
+└── val/
     ├── n01440764/
-    │   ├── ILSVRC2012_val_00000211.JPEG
-    │   └── ...
-    ├── n01443537/
     │   └── ...
     └── ...
+```
+
+#### Using ImageNet Mini (Smaller Dataset for Testing)
+
+For quick testing or development, you can use [ImageNet Mini](https://www.kaggle.com/datasets/ifigotin/imagenetmini-1000):
+
+```bash
+# Download via kagglehub
+pip install kagglehub
+python -c "import kagglehub; kagglehub.dataset_download('ifigotin/imagenetmini-1000')"
+
+# The dataset will be downloaded to ~/.cache/kagglehub/datasets/ifigotin/imagenetmini-1000/
+# Use: data.dataset_path=/path/to/imagenetmini/imagenet-mini
 ```
 
 ### Training Configuration
@@ -199,7 +255,7 @@ train:
 # Environment settings
 env:
   mode: 0  # 0: PYNATIVE_MODE, 1: GRAPH_MODE
-  device: "Ascend"
+  device: "Ascend"  # "Ascend", "GPU", "CPU"
   distributed: false
   seed: 42
   dtype: "fp32"
@@ -666,6 +722,23 @@ train_pipeline = FlowMatchingLoss(
 ## Troubleshooting
 
 ### Common Issues
+
+#### MindSpore CPU: Missing Kernel Operations
+
+**Problem:** MindSpore CPU version may be missing some kernel operations (e.g., Conv2D, Arange) required for DiT training.
+
+**Solutions:**
+```bash
+# Option 1: Use GPU version of MindSpore
+pip install mindspore-gpu
+
+# Option 2: Use Ascend NPU version
+pip install mindspore-ascend
+
+# Option 3: Use PyTorch version instead
+cd DiT
+python train.py --device cpu ...
+```
 
 #### Out of Memory (OOM) During Training
 
