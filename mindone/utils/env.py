@@ -12,7 +12,8 @@ _logger = logging.getLogger(__name__)
 
 def init_env(
     mode: int = ms.GRAPH_MODE,
-    device_target: Literal["Ascend", "GPU"] = "Ascend",
+    device_target: Literal["Ascend", "GPU", "CPU"] = "Ascend",
+    device: Literal["Ascend", "GPU", "CPU"] = None,
     debug: bool = False,
     seed: int = 42,
     cache_graph: bool = False,
@@ -33,6 +34,8 @@ def init_env(
     jit_level: Optional[Literal["O0", "O1", "O2"]] = None,
     max_device_memory: str = None,
 ) -> tuple[Union[int, None], int, int]:
+    if device is not None:
+        device_target = device
     """
     Initialize MindSpore environment.
 

@@ -4,14 +4,14 @@
 # Environment settings
 env:
   mode: 0                    # 0: PYNTIVE_MODE, 1: GRAPH_MODE
-  device: "Ascend"          # "Ascend", "GPU", "CPU"
+  device: "CPU"          # "Ascend", "GPU", "CPU"
   distributed: false         # Enable distributed training
   seed: 42
   dtype: "fp32"              # "fp32", "fp16", "bf16"
 
 # Data settings
 data:
-  dataset_path: "/path/to/imagenet"    # ImageNet root path (train/val folders with class subdirs)
+  dataset_path: "/home/ubuntu/.cache/imagenetmini/imagenet-mini"    # ImageNet root path (train/val folders with class subdirs)
   latent_path: null                     # Pre-computed VAE latents path (optional, for faster training)
   image_size: 256
   num_classes: 1000
@@ -31,7 +31,6 @@ model:
   num_layers: 28                        # DiT-XL: 28
   num_heads: 16
   head_dim: 72
-  mlp_ratio: 4.0
   class_dropout_prob: 0.1               # Classifier-free guidance probability
   enable_gradient_checkpointing: false
 
@@ -69,8 +68,6 @@ train:
   log_interval: 50
   save_checkpoint_steps: 5000
   save_checkpoint_total_limit: 5
-  eval_steps: 10000
-  eval_num_samples: 8
 
 # VAE settings
 vae:
@@ -85,10 +82,3 @@ scheduler:
   beta_schedule: "linear"               # "linear", "scaled_linear", "squaredcos_cap_v2"
   num_train_timesteps: 1000
   clip_sample: false
-
-# Inference settings
-inference:
-  num_inference_steps: 50
-  guidance_scale: 4.0
-  eta: 0.0                              # DDIM eta parameter
-  output_dir: "./generated_images"

@@ -282,10 +282,18 @@ def get_2d_sincos_pos_embed(
     if isinstance(grid_size, int):
         grid_size = (grid_size, grid_size)
 
-    grid_h = mint.arange(grid_size[0], dtype=ms.float32) / (grid_size[0] / base_size) / interpolation_scale
-    grid_w = mint.arange(grid_size[1], dtype=ms.float32) / (grid_size[1] / base_size) / interpolation_scale
-    grid = mint.meshgrid(grid_w, grid_h, indexing="xy")  # here w goes first
-    grid = mint.stack(grid, dim=0)
+    try:
+        grid_h = mint.arange(grid_size[0], dtype=ms.float32) / (grid_size[0] / base_size) / interpolation_scale
+        grid_w = mint.arange(grid_size[1], dtype=ms.float32) / (grid_size[1] / base_size) / interpolation_scale
+        grid = mint.meshgrid(grid_w, grid_h, indexing="xy")  # here w goes first
+        grid = mint.stack(grid, dim=0)
+    except RuntimeError:
+        import numpy as np
+        grid_h = np.arange(grid_size[0], dtype=np.float32) / (grid_size[0] / base_size) / interpolation_scale
+        grid_w = np.arange(grid_size[1], dtype=np.float32) / (grid_size[1] / base_size) / interpolation_scale
+        grid_w, grid_h = np.meshgrid(grid_w, grid_h, indexing='xy')
+        grid = np.stack([grid_w, grid_h], axis=0)
+        grid = ms.Tensor(grid)
 
     grid = grid.reshape([2, 1, grid_size[1], grid_size[0]])
     pos_embed = get_2d_sincos_pos_embed_from_grid(embed_dim, grid, output_type=output_type)
@@ -305,26 +313,26 @@ def get_2d_sincos_pos_embed_from_grid(embed_dim, grid, output_type="np"):
     Returns:
         `ms.Tensor`: The 2D sinusoidal positional embeddings with shape `(H * W, embed_dim)`
     """
-    if output_type == "np":
-        deprecation_message = (
-            "`get_2d_sincos_pos_embed_from_grid` uses `mindspore`."
-            " `from_numpy` is no longer required."
-            "  Pass `output_type='ms' to use the new version now."
-        )
-        deprecate("output_type=='np'", "0.33.0", deprecation_message, standard_warn=False)
-        return get_2d_sincos_pos_embed_from_grid_np(
-            embed_dim=embed_dim,
-            grid=grid,
-        )
-    if embed_dim % 2 != 0:
-        raise ValueError("embed_dim must be divisible by 2")
-
-    # use half of dimensions to encode grid_h
-    emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0], output_type=output_type)  # (H*W, D/2)
-    emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1], output_type=output_type)  # (H*W, D/2)
-
-    emb = mint.concat([emb_h, emb_w], dim=1)  # (H*W, D)
-    return emb
+    try:
+        # Try with ms operations
+        if embed_dim % 2 != 0:
+            raise ValueError("embed_dim must be divisible by 2")
+        emb_h = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[0], output_type=output_type)  # (H*W, D/2)
+        emb_w = get_1d_sincos_pos_embed_from_grid(embed_dim // 2, grid[1], output_type=output_type)  # (H*W, D/2)
+        emb = mint.concat([emb_h, emb_w], dim=1)  # (H*W, D)
+        return emb
+    except RuntimeError as e:
+        # Fallback to numpy if ms operations fail
+        import numpy as np
+        if hasattr(grid, 'asnumpy'):
+            grid_np = grid.asnumpy()
+        else:
+            grid_np = np.array(grid)
+        
+        emb_h = get_1d_sincos_pos_embed_from_grid_np(embed_dim // 2, grid_np[0])
+        emb_w = get_1d_sincos_pos_embed_from_grid_np(embed_dim // 2, grid_np[1])
+        emb = np.concatenate([emb_h, emb_w], axis=1)
+        return ms.Tensor(emb)
 
 
 def get_1d_sincos_pos_embed_from_grid(embed_dim, pos, output_type="np", flip_sin_to_cos=False):

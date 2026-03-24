@@ -26,7 +26,15 @@ import mindspore.dataset as ds
 from mindspore import GRAPH_MODE, Model, get_context, nn, set_context, set_seed
 from mindspore.communication.management import get_group_size, get_rank
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+# Add parent directories to path for imports
+_repo_root = Path(__file__).parent.parent.parent.parent  # mindone
+_examples_dir = Path(__file__).parent.parent.parent  # examples
+_dit_dir = Path(__file__).parent.parent  # dit
+
+for p in [_repo_root, _examples_dir, _dit_dir]:
+    p_str = str(p)
+    if p_str not in sys.path:
+        sys.path.insert(0, p_str)
 
 from mindone.data import create_dataloader
 from mindone.trainers import create_optimizer, create_scheduler
