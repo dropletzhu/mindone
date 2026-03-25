@@ -3,8 +3,8 @@
 
 # Environment settings
 env:
-  mode: 0                    # 0: PYNTIVE_MODE, 1: GRAPH_MODE
-  device: "CPU"          # "Ascend", "GPU", "CPU"
+  mode: 0                    # 0: PYNATIVE_MODE, 1: GRAPH_MODE
+  device: "Ascend"           # "Ascend", "GPU", "CPU"
   distributed: false         # Enable distributed training
   seed: 42
   dtype: "fp32"              # "fp32", "fp16", "bf16"

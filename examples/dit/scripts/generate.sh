@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # DiT Generation Launch Script
-# Usage: bash scripts/generate.sh
+# Usage: bash scripts/generate.sh [checkpoint] [output_dir] [num_images]
 
 set -e
 
@@ -29,7 +29,6 @@ python scripts/generate.py \
     --seed 42 \
     --image_size 256 \
     --dtype fp32 \
-    --scheduler ddim \
-    --class_labels "tench,goldfish,hen,cock"
+    --scheduler ddim
 
 echo "Generation completed!"

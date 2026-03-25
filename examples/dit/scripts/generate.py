@@ -82,6 +82,12 @@ def parse_args():
         default=None,
         help="HuggingFace model ID or path (alternative to checkpoint)",
     )
+    parser.add_argument(
+        "--vae_model",
+        type=str,
+        default="stabilityai/sd-vae-ft-mse",
+        help="VAE model path or HuggingFace model ID",
+    )
     return parser.parse_args()
 
 
@@ -275,8 +281,8 @@ def main():
 
     logger.info(f"Model loaded, sample_size: {sample_size}")
 
-    logger.info("Loading VAE...")
-    vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse")
+    logger.info(f"Loading VAE from {args.vae_model}...")
+    vae = AutoencoderKL.from_pretrained(args.vae_model)
     vae = vae.to(dtype_map[args.dtype])
     vae.set_train(False)
 
