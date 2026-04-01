@@ -36,6 +36,8 @@ from mindone.diffusers import (
 )
 from mindone.utils import set_logger
 
+ms.set_context(device_target="Ascend", mode=ms.PYNATIVE_MODE)
+
 logger = logging.getLogger(__name__)
 
 IMAGENET_CLASS_LABELS = {
@@ -175,6 +177,7 @@ def generate_with_pipeline(
         num_inference_steps=num_inference_steps,
         guidance_scale=guidance_scale,
         generator=generator,
+        return_dict=True,
     )
 
     return output.images
@@ -272,12 +275,20 @@ def main():
         model = DiTTransformer2DModel.from_pretrained(args.pretrained_model)
         sample_size = model.config.sample_size
     else:
-        model, sample_size = load_dit_model(
-            checkpoint_path=args.checkpoint,
-            pretrained_model=args.pretrained_model,
-            image_size=args.image_size,
-            dtype=args.dtype,
+        sample_size = 32  # For 256x256 images, latent size is 32
+        model = DiTTransformer2DModel(
+            in_channels=4,
+            out_channels=8,  # learn_sigma=True means out_channels = 4 * 2 = 8
+            patch_size=2,
+            num_attention_heads=16,
+            attention_head_dim=72,
+            num_layers=28,
+            sample_size=sample_size,
+            num_embeds_ada_norm=1000,
         )
+        param_dict = ms.load_checkpoint(args.checkpoint)
+        ms.load_param_into_net(model, param_dict)
+        logger.info(f"Loaded checkpoint with {len(param_dict)} parameters")
 
     logger.info(f"Model loaded, sample_size: {sample_size}")
 
@@ -288,23 +299,26 @@ def main():
 
     logger.info("Loading scheduler...")
     if args.scheduler == "ddim":
-        scheduler = DDIMScheduler.from_defaults(
+        scheduler = DDIMScheduler(
             num_train_timesteps=1000,
             beta_schedule="linear",
             clip_sample=False,
             set_alpha_to_one=False,
+            prediction_type="epsilon",
         )
     elif args.scheduler == "dpm":
-        scheduler = DPMSolverMultistepScheduler.from_defaults(
+        scheduler = DPMSolverMultistepScheduler(
             num_train_timesteps=1000,
             beta_schedule="linear",
             clip_sample=False,
+            prediction_type="epsilon",
         )
     else:
-        scheduler = DDPMScheduler.from_defaults(
+        scheduler = DDPMScheduler(
             num_train_timesteps=1000,
             beta_schedule="linear",
             clip_sample=False,
+            prediction_type="epsilon",
         )
 
     logger.info("Creating pipeline...")
