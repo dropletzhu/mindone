@@ -278,7 +278,7 @@ def main():
         sample_size = 32  # For 256x256 images, latent size is 32
         model = DiTTransformer2DModel(
             in_channels=4,
-            out_channels=8,  # learn_sigma=True means out_channels = 4 * 2 = 8
+            out_channels=8,  # learn_sigma=True to match PyTorch DiT
             patch_size=2,
             num_attention_heads=16,
             attention_head_dim=72,
@@ -287,7 +287,21 @@ def main():
             num_embeds_ada_norm=1000,
         )
         param_dict = ms.load_checkpoint(args.checkpoint)
-        ms.load_param_into_net(model, param_dict)
+        not_loaded = ms.load_param_into_net(model, param_dict, strict_load=False)
+        if not_loaded:
+            logger.warning(f"Parameters not fully loaded, {len(not_loaded)} params missing")
+        
+        # Set PyTorch pos_embed (it wasn't saved in checkpoint due to mindspore issue)
+        import torch
+        pt_ckpt = torch.load("/home/ma-user/work/temp/pretrained-pytorch/DiT-XL-2-256x256.pt", map_location='cpu')
+        if 'pos_embed' in pt_ckpt:
+            pos_embed_tensor = ms.Tensor(pt_ckpt['pos_embed'].numpy())
+            for param in model.get_parameters():
+                if param.name == "pos_embed.pos_embed":
+                    param.set_data(pos_embed_tensor)
+                    logger.info(f"Set PyTorch pos_embed, row 1 sample: {param.asnumpy()[0, 1, :5]}")
+                    break
+        
         logger.info(f"Loaded checkpoint with {len(param_dict)} parameters")
 
     logger.info(f"Model loaded, sample_size: {sample_size}")
@@ -333,8 +347,11 @@ def main():
         class_labels = [IMAGENET_CLASS_LABELS.get(name, 0) for name in label_names]
         if len(class_labels) < args.num_images:
             class_labels = (class_labels * args.num_images)[: args.num_images]
-    else:
+    elif args.class_labels == "random":
         class_labels = [np.random.randint(0, 1000) for _ in range(args.num_images)]
+    else:
+        # Default to hen (class 7) to match PyTorch DiT reference
+        class_labels = [7] * args.num_images
 
     logger.info(f"Class labels: {class_labels}")
 

@@ -118,6 +118,8 @@ class DiTTransformer2DModel(ModelMixin, ConfigMixin):
             patch_size=self.config.patch_size,
             in_channels=self.config.in_channels,
             embed_dim=self.inner_dim,
+            pos_embed_type="learnable",  # Use learnable pos_embed for DiT compatibility
+            pos_embed_max_size=self.config.sample_size,
         )
 
         self.transformer_blocks = nn.CellList(
@@ -193,9 +195,14 @@ class DiTTransformer2DModel(ModelMixin, ConfigMixin):
                 class_labels=class_labels,
             )
 
-        # 3. Output
+        # 3. Output - DiT-style final layer with same conditioning as blocks
+        # Use CombinedTimestepLabelEmbeddings directly to match PyTorch DiT
         conditioning = self.transformer_blocks[0].norm1.emb(timestep, class_labels, hidden_dtype=hidden_states.dtype)
-        shift, scale = self.proj_out_1(mint.nn.functional.silu(conditioning)).chunk(2, dim=1)
+        # DiT final layer: shift, scale = silu(linear(c)) -> 2 outputs
+        # But we have proj_out_1 (linear 1152->2304) and proj_out_2 (linear 1152->32)
+        # The shift/scale should come from the same conditioning
+        shift_scale = self.proj_out_1(mint.nn.functional.silu(conditioning))
+        shift, scale = shift_scale.chunk(2, dim=1)
         hidden_states = self.norm_out(hidden_states) * (1 + scale[:, None]) + shift[:, None]
         hidden_states = self.proj_out_2(hidden_states)
 
